@@ -28,13 +28,13 @@ def pigment_mixture(pigment, pigment_amount, water_vol):
 	Mix several colors together.
 
 	Params:
-	pigment - color list.
-	pigment_amount - amount list of pigment.
-	water_vol - water mixed in. related to opacity.
+	pigment - Color list.
+	pigment_amount - Amount list of pigment.
+	water_vol - Water mixed in. related to opacity.
 	
 	Returns:
-	mix_color - mixture color
-	opacity - opacity of mixture color
+	mix_color - Mixture color.
+	opacity - Opacity of mixture color.
 	"""
 	w = pigment_amount/np.sum(pigment_amount)
 	mix_color = 255 - np.sqrt(np.dot(w, (255-pigment)**2))
@@ -48,13 +48,13 @@ def init_stroke(pos_start, pos_end, strength=0.5):
 	Use pigment to draw a stroke with strength.
 
 	Params:
-	pigment - pigment color and opacity
-	pos_start - start position
-	pos_end - end position
-	strength - strength used to draw the stroke. [0, 1]
+	pigment - Pigment color and opacity.
+	pos_start - Start position.
+	pos_end - End position.
+	strength - Strength used to draw the stroke. [0, 1]
 
 	Returns:
-	[vertex] - vertex of stroke
+	[vertex] - Vertex of stroke.
 	"""
 	size = BRUSH_SIZE*strength
 
@@ -74,13 +74,14 @@ def pigment_advection(stroke, pigment, wet_map, color_map):
 	Simulate pigment advection.
 
 	Params:
-	stroke - original stroke.
-	pigment - stroke color.
-	wet_map - record water volume of color.
-	color_map - record color on the paper.
+	stroke - Original stroke.
+	pigment - Stroke color.
+	wet_map - Record water volume of color.
+	color_map - Record color on the paper.
 
 	Returns:
-
+	vtxes - Stroke.
+	pigment - Color.
 	"""
 	vtx1, vtx2, vtx3, vtx4 = stroke
 
@@ -123,12 +124,11 @@ def pigment_advection(stroke, pigment, wet_map, color_map):
 	def poly_area(x, y):
 		return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
 
+	size_ori = poly_area(stroke[:,0], stroke[:,1])
+
 	vtxes = np.concatenate([vtx_up, vtx_right, vtx_down, vtx_left])
 	x = vtxes[:, 0]
 	y = vtxes[:, 1]
-
-	# size_ori = np.mean((vtx1-vtx2)**2)*np.mean((vtx1-vtx4)**2)
-	size_ori = poly_area(stroke[:,0], stroke[:,1])
 	size_new = poly_area(x, y)
 	print(size_ori, size_new)
 
@@ -141,6 +141,17 @@ def pigment_advection(stroke, pigment, wet_map, color_map):
 
 
 def draw_stroke(stroke, pigment, color_map):
+	"""
+	Draw.
+
+	Params:
+	stroke - Shape.
+	pigment - Color.
+	color_map - Canvas to draw.
+
+	Returns:
+	color_map - Drawn painting.
+	"""
 	stroke = [tuple(row) for row in stroke]
 	pigment = tuple([int(i) for i in pigment])
 	ImageDraw.Draw(color_map, 'RGBA').polygon(stroke, outline=(0, 0, 0, 0), fill=tuple(pigment))
@@ -150,17 +161,37 @@ def draw_stroke(stroke, pigment, color_map):
 
 
 def painting(pigment, 
-				pigment_amount, 
-				water_vol, 
-				pos_start, 
-				pos_end, 
-				strength, 
-				color_map, 
-				wet_map):
+	pigment_amount, 
+	water_vol, 
+	pos_start, 
+	pos_end, 
+	strength, 
+	color_map, 
+	wet_map):
+	"""
+	Integrate operations into one function.
 
+	Params:
+	pigment - Color. Get from network.
+	pigment_amount - Pigment mixture amount. Get from network.
+	water_vol - Water amount mixed with pigment. Get from network.
+	pos_start - Start drawing position. Get from network.
+	pos_end - End drawing position. Get from network.
+	strength - Strength used to draw. Related to stroke size. Get from network.
+	color_map - Canvas to draw. Update every painting.
+	wet_map - Record water on the paper. Update every painting. Part get from network.
+
+	Returns:
+	color_map - Update painting.
+	"""
+
+	# mix pigment
 	pigment = pigment_mixture(pigment=pigment, pigment_amount=pigment_amount, water_vol=water_vol)
+	# init stroke
 	stroke = init_stroke(pos_start=pos_start, pos_end=pos_end, strength=strength)
+	# pigment advection
 	stroke, pigment = pigment_advection(stroke=stroke, pigment=pigment, wet_map=wet_map, color_map=color_map)
+	# draw on the paper
 	color_map = draw_stroke(stroke=stroke, pigment=pigment, color_map=color_map)
 
 	return color_map
@@ -171,6 +202,8 @@ if __name__ == '__main__':
 	img_size = (256, 256)
 	wet_map = np.ones(img_size)*0.9
 	color_map = Image.new('RGB', img_size, (255, 255, 255))
+
+	
 
 
 	for i in range(10):
