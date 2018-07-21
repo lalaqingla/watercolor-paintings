@@ -5,7 +5,7 @@ BRUSH_SIZE = 32
 PI = 3.14
 
 PERCENT_H = 0.01
-PERCENT_V = 0.25
+PERCENT_V = 0.05
 
 OPACITY_P = 1./4
 INTER_AREA = 1./2
@@ -217,7 +217,7 @@ if __name__ == '__main__':
 	(69, 139, 0), (60, 179, 113), (34, 139, 34), (139, 69, 19), (255, 165, 0), (0, 0, 0)]
 
 
-	for i in range(5):
+	for i in range(10):
 		idx = np.random.randint(len(basic_colors), size=2)
 		pigment = np.array([basic_colors[idx[0]], basic_colors[idx[1]]]) # choose color from basic colors
 		pigment_amount = np.array([np.random.uniform(100), np.random.uniform(100)])
