@@ -4,6 +4,12 @@ from PIL import Image, ImageDraw
 BRUSH_SIZE = 32
 PI = 3.14
 
+PERCENT_H = 0.01
+PERCENT_V = 0.25
+
+OPACITY_P = 1./4
+INTER_AREA = 1./2
+
 
 # class Painting():
 
@@ -59,13 +65,13 @@ def init_stroke(pos_start, pos_end, strength=0.5):
 	size = BRUSH_SIZE*strength
 
 	theta = np.arctan((pos_end[1] - pos_start[1])/(pos_end[0] - pos_start[0]))
-	deltay = size*np.cos(theta)
-	deltax = size*np.sin(theta)
+	dy = size*np.cos(theta)
+	dx = size*np.sin(theta)
 
-	vtx1 = (pos_start[0] - deltax, pos_start[1] + deltay)
-	vtx2 = (pos_start[0] + deltax, pos_start[1] - deltay)
-	vtx3 = (pos_end[0] + deltax, pos_end[1] - deltay)
-	vtx4 = (pos_end[0] - deltax, pos_end[1] + deltay)
+	vtx1 = (pos_start[0] - dx, pos_start[1] + dy)
+	vtx2 = (pos_start[0] + dx, pos_start[1] - dy)
+	vtx3 = (pos_end[0] + dx, pos_end[1] - dy)
+	vtx4 = (pos_end[0] - dx, pos_end[1] + dy)
 	return np.array([vtx1, vtx2, vtx3, vtx4])
 
 
@@ -86,21 +92,17 @@ def pigment_advection(stroke, pigment, wet_map, color_map):
 	vtx1, vtx2, vtx3, vtx4 = stroke
 
 	# step 0: sample vertex of stroke
-	percent1 = 0.25
-	percent2 = 0.5
 
-	vtx_up = [vtx1]
-	vtx_down = [vtx3]
+	vtx_up = []
+	vtx_down = []
 	vtx_left = []
 	vtx_right = []
-	for i in range(int(1/percent1)):
-		vtx_up.append(vtx1 + (vtx4 - vtx1)*percent1*(i+1))
-		vtx_down.append(vtx3 + (vtx2 - vtx3)*percent1*(i+1))
-	vtx_up.append(vtx4)
-	for i in range(int(1/percent2)):
-		vtx_left.append(vtx2 + (vtx1 - vtx2)*percent2*(i+1))
-		vtx_right.append(vtx4 + (vtx3 - vtx4)*percent2*(i+1))
-	vtx_down.append(vtx2)
+	for i in range(int(1/PERCENT_H)):
+		vtx_up.append(vtx1 + (vtx4 - vtx1)*PERCENT_H*i)
+		vtx_down.append(vtx3 + (vtx2 - vtx3)*PERCENT_H*i)
+	for i in range(int(1/PERCENT_V)):
+		vtx_left.append(vtx2 + (vtx1 - vtx2)*PERCENT_V*i)
+		vtx_right.append(vtx4 + (vtx3 - vtx4)*PERCENT_V*i)
 
 	# step 1: pigment advention
 	v_up = (vtx1 - vtx2)/np.sqrt(np.sum((vtx1 - vtx2)**2))
@@ -110,16 +112,16 @@ def pigment_advection(stroke, pigment, wet_map, color_map):
 
 	for v in vtx_up:
 		_amount = wet_map[int(v[0])][int(v[1])] # v amount is decided by wet map
-		v += v_up*_amount*10
+		v += v_up*_amount*10*np.random.uniform(0,1,1)
 	for v in vtx_down:
 		_amount = wet_map[int(v[0])][int(v[1])]
-		v += v_down*_amount*10
+		v += v_down*_amount*10*np.random.uniform(0,1,1)
 	for v in vtx_left:
 		_amount = wet_map[int(v[0])][int(v[1])]
-		v += v_left*_amount*10
+		v += v_left*_amount*10*np.random.uniform(0,1,1)
 	for v in vtx_right:
 		_amount = wet_map[int(v[0])][int(v[1])]
-		v += v_right*_amount*10
+		v += v_right*_amount*10*np.random.uniform(0,1,1)
 
 	def poly_area(x, y):
 		return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
@@ -132,7 +134,9 @@ def pigment_advection(stroke, pigment, wet_map, color_map):
 	size_new = poly_area(x, y)
 	print(size_ori, size_new)
 
-	pigment[-1] = pigment[-1]*size_ori/size_new
+	# opacity update
+	pigment[-1] = pigment[-1]*size_ori/(size_new+size_ori*OPACITY_P)
+	INTER_AREA = 1.0*size_ori/size_new
 
 	# step 2: pigment mixture
 	# ... jump now
@@ -152,9 +156,19 @@ def draw_stroke(stroke, pigment, color_map):
 	Returns:
 	color_map - Drawn painting.
 	"""
-	stroke = [tuple(row) for row in stroke]
-	pigment = tuple([int(i) for i in pigment])
-	ImageDraw.Draw(color_map, 'RGBA').polygon(stroke, outline=(0, 0, 0, 0), fill=tuple(pigment))
+	stroke_out = [tuple(row) for row in stroke]
+	pigment_out = tuple([int(i) for i in pigment])
+	ImageDraw.Draw(color_map, 'RGBA').polygon(stroke_out, outline=(0, 0, 0, 0), fill=pigment_out)
+
+	stroke_in = stroke.copy()
+	idx_h = int(1/PERCENT_H)
+	idx_v = int(1/PERCENT_V)
+	stroke_in[:idx_h+1] = stroke[:idx_h+1]+(stroke[-idx_v:idx_h+idx_v-1:-1] - stroke[:idx_h+1])*(0.5-INTER_AREA/2)
+	stroke_in[-idx_v:idx_h+idx_v-1:-1] = stroke[:idx_h+1]+(stroke[-idx_v:idx_h+idx_v-1:-1] - stroke[:idx_h+1])*(0.5+INTER_AREA/2)
+	stroke_in = [tuple(row) for row in stroke_in]
+	pigment[-1] *= OPACITY_P
+	pigment_in = tuple([int(i) for i in pigment])
+	ImageDraw.Draw(color_map, 'RGBA').polygon(stroke_in, outline=(0, 0, 0, 0), fill=pigment_in)
 	# color_map.show()
 	color_map.save('draw.png')
 	return color_map
@@ -185,13 +199,9 @@ def painting(pigment,
 	color_map - Update painting.
 	"""
 
-	# mix pigment
 	pigment = pigment_mixture(pigment=pigment, pigment_amount=pigment_amount, water_vol=water_vol)
-	# init stroke
 	stroke = init_stroke(pos_start=pos_start, pos_end=pos_end, strength=strength)
-	# pigment advection
 	stroke, pigment = pigment_advection(stroke=stroke, pigment=pigment, wet_map=wet_map, color_map=color_map)
-	# draw on the paper
 	color_map = draw_stroke(stroke=stroke, pigment=pigment, color_map=color_map)
 
 	return color_map
@@ -203,12 +213,13 @@ if __name__ == '__main__':
 	wet_map = np.ones(img_size)*0.9
 	color_map = Image.new('RGB', img_size, (255, 255, 255))
 
-	
+	basic_colors = [(255, 255, 0), (255, 215, 0), (255, 69, 0), (176, 48, 96), (0, 0, 139), (0, 178, 238), 
+	(69, 139, 0), (60, 179, 113), (34, 139, 34), (139, 69, 19), (255, 165, 0), (0, 0, 0)]
 
 
-	for i in range(10):
-		pigment = np.array([(np.random.uniform(255), np.random.uniform(255), np.random.uniform(255)), 
-			(np.random.uniform(255), np.random.uniform(255), np.random.uniform(255))])
+	for i in range(5):
+		idx = np.random.randint(len(basic_colors), size=2)
+		pigment = np.array([basic_colors[idx[0]], basic_colors[idx[1]]]) # choose color from basic colors
 		pigment_amount = np.array([np.random.uniform(100), np.random.uniform(100)])
 		water_vol = np.random.uniform(100)
 
