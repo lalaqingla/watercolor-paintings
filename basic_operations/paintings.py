@@ -1,8 +1,16 @@
+###############################
+
+# To do:
+#   - add gravity
+#   - edit wet_map
+#   - change trajectory
+
+##################################
+
 import numpy as np
 from PIL import Image, ImageDraw
 
 BRUSH_SIZE = 32
-PI = 3.14
 
 PERCENT_H = 0.01
 PERCENT_V = 0.05
@@ -111,15 +119,19 @@ def pigment_advection(stroke, pigment, wet_map, color_map):
 	v_right = (vtx4 - vtx1)/np.sqrt(np.sum((vtx4 - vtx1)**2))
 
 	for v in vtx_up:
+		v[v>255] = 255
 		_amount = wet_map[int(v[0])][int(v[1])] # v amount is decided by wet map
 		v += v_up*_amount*10*np.random.uniform(0,1,1)
 	for v in vtx_down:
+		v[v>255] = 255
 		_amount = wet_map[int(v[0])][int(v[1])]
 		v += v_down*_amount*10*np.random.uniform(0,1,1)
 	for v in vtx_left:
+		v[v>255] = 255
 		_amount = wet_map[int(v[0])][int(v[1])]
 		v += v_left*_amount*10*np.random.uniform(0,1,1)
 	for v in vtx_right:
+		v[v>255] = 255
 		_amount = wet_map[int(v[0])][int(v[1])]
 		v += v_right*_amount*10*np.random.uniform(0,1,1)
 
@@ -210,14 +222,21 @@ def painting(pigment,
 if __name__ == '__main__':
 
 	img_size = (256, 256)
-	wet_map = np.ones(img_size)*0.9
+	wet_map = np.ones(img_size)*0.5
 	color_map = Image.new('RGB', img_size, (255, 255, 255))
 
 	basic_colors = [(255, 255, 0), (255, 215, 0), (255, 69, 0), (176, 48, 96), (0, 0, 139), (0, 178, 238), 
 	(69, 139, 0), (60, 179, 113), (34, 139, 34), (139, 69, 19), (255, 165, 0), (0, 0, 0)]
 
 
-	for i in range(10):
+	for i in range(100):
+		if i > 30:
+			BRUSH_SIZE = 16
+		if i > 60:
+			BRUSH_SIZE = 8
+		if i > 90:
+			BRUSH_SIZE = 4
+
 		idx = np.random.randint(len(basic_colors), size=2)
 		pigment = np.array([basic_colors[idx[0]], basic_colors[idx[1]]]) # choose color from basic colors
 		pigment_amount = np.array([np.random.uniform(100), np.random.uniform(100)])
@@ -229,6 +248,7 @@ if __name__ == '__main__':
 
 		color_map = painting(pigment, pigment_amount, water_vol, pos_start, pos_end, strength, color_map, wet_map)
 
+		# wet_map[wet_map!=0] -= 0.01
 
 
 
